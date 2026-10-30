@@ -1,0 +1,17 @@
+# Dependencias (no usamos npm aun, pero por si acaso)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editores / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build / temporales
+dist/
+.cache/
+*.tmp

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>::: MI CUARTO 3D ::: [[ eng.student.room ]]</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ======= OVERLAY RETRO 2000s ======= -->
+  <div id="scanlines"></div>
+
+  <header id="topbar">
+    <div class="marquee">
+      <span>&#9733; BIENVENIDO A MI CUARTO 3D &#9733; ROCK 80-90 &#9733; VINILOS &#9733; IMPRESORA 3D &#9733; BRAZO ROBOTICO &#9733; ROBOT &#9733; LAPTOP &#9733; LEGO &#9733; SOLDADURA &#9733; HAZ CLIC EN LAS COSAS &#9733;</span>
+    </div>
+  </header>
+
+  <!-- ======= HUD de ayuda ======= -->
+  <div id="hud">
+    <div class="hud-title">[ CONTROLES ]</div>
+    <div class="hud-line">&#8635; Arrastrar: girar camara</div>
+    <div class="hud-line">&#8597; Rueda: zoom</div>
+    <div class="hud-line">&#9995; Clic derecho + arrastrar: mover</div>
+    <div class="hud-line hud-hint">&#9758; Haz clic en los objetos que brillan</div>
+  </div>
+
+  <!-- ======= Panel de info del objeto ======= -->
+  <div id="infocard" class="hidden">
+    <button id="infoClose" title="cerrar">&times;</button>
+    <div id="infoTitle">objeto</div>
+    <div id="infoBody">...</div>
+  </div>
+
+  <!-- ======= Consola del robot ======= -->
+  <div id="robotConsole" class="hidden">
+    <div class="rc-head">
+      <span class="rc-dot"></span> ROBOT-UNIT // terminal
+      <button id="rcClose" title="cerrar">&times;</button>
+    </div>
+    <div id="rcLog" class="rc-log"></div>
+    <div class="rc-inputrow">
+      <span class="rc-prompt">&gt;</span>
+      <input id="rcInput" type="text" placeholder="escribe un comando y Enter..." autocomplete="off" />
+    </div>
+    <div class="rc-hints">prueba: hola &middot; baila &middot; girar &middot; color rojo &middot; ayuda</div>
+  </div>
+
+  <!-- ======= Loader ======= -->
+  <div id="loader">
+    <div class="loader-box">
+      <div class="loader-bar"><div class="loader-fill"></div></div>
+      <div class="loader-txt">cargando cuarto...</div>
+    </div>
+  </div>
+
+  <canvas id="scene"></canvas>
+
+  <!-- Three.js via import map (CDN, sin build) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

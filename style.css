@@ -1,0 +1,247 @@
+/* =========================================================
+   MI CUARTO 3D — estetica 2000s + 3D moderno
+   ========================================================= */
+
+:root {
+  --neon:   #19f7c8;
+  --neon2:  #ff3cac;
+  --amber:  #ffd166;
+  --ink:    #e7f6ff;
+  --panel:  rgba(8, 12, 28, 0.82);
+  --panel-bd: #2bd4ff;
+  --mono: "Lucida Console", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05060f;
+  color: var(--ink);
+  font-family: var(--mono);
+  cursor: default;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- Scanlines retro ---------- */
+#scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.12) 3px,
+    rgba(0, 0, 0, 0.12) 4px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+}
+
+/* ---------- Top marquee ---------- */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 40;
+  height: 26px;
+  background: linear-gradient(90deg, var(--neon2), #7a2cff, var(--neon));
+  border-bottom: 2px solid #000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 0 18px rgba(255, 60, 172, 0.5);
+}
+.marquee {
+  white-space: nowrap;
+  animation: scroll 32s linear infinite;
+  font-weight: bold;
+  color: #06121f;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+@keyframes scroll {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(-100%); }
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 40;
+  background: var(--panel);
+  border: 1px solid var(--panel-bd);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  box-shadow: 0 0 20px rgba(43, 212, 255, 0.25), inset 0 0 12px rgba(43,212,255,0.08);
+  backdrop-filter: blur(3px);
+}
+.hud-title {
+  color: var(--neon);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+.hud-hint { color: var(--amber); margin-top: 4px; }
+
+/* ---------- Info card ---------- */
+#infocard {
+  position: fixed;
+  right: 16px;
+  top: 44px;
+  z-index: 41;
+  width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--neon2);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 0 26px rgba(255, 60, 172, 0.35);
+  backdrop-filter: blur(4px);
+}
+#infoTitle {
+  color: var(--neon2);
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+#infoBody { font-size: 12.5px; line-height: 1.6; color: var(--ink); }
+#infoClose, #rcClose {
+  position: absolute;
+  top: 6px; right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+#infoClose:hover, #rcClose:hover { color: var(--neon2); }
+
+/* ---------- Robot console ---------- */
+#robotConsole {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 42;
+  width: min(560px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--neon);
+  border-radius: 10px;
+  box-shadow: 0 0 30px rgba(25, 247, 200, 0.35);
+  backdrop-filter: blur(5px);
+  overflow: hidden;
+}
+.rc-head {
+  background: rgba(25, 247, 200, 0.12);
+  border-bottom: 1px solid rgba(25, 247, 200, 0.4);
+  padding: 7px 12px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--neon);
+  position: relative;
+}
+.rc-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--neon);
+  box-shadow: 0 0 8px var(--neon);
+  margin-right: 6px;
+  animation: blink 1.4s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0.2; } }
+.rc-log {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.rc-log .user { color: var(--amber); }
+.rc-log .bot  { color: var(--neon); }
+.rc-inputrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid rgba(25,247,200,0.25);
+}
+.rc-prompt { color: var(--neon); }
+#rcInput {
+  flex: 1;
+  background: #020812;
+  border: 1px solid rgba(25,247,200,0.35);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  outline: none;
+}
+#rcInput:focus { border-color: var(--neon); box-shadow: 0 0 8px rgba(25,247,200,0.4); }
+.rc-hints {
+  padding: 0 12px 10px;
+  font-size: 11px;
+  color: #7fa7b8;
+}
+
+/* ---------- Loader ---------- */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: radial-gradient(circle at 50% 40%, #0b1030, #04040c 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.6s ease;
+}
+#loader.gone { opacity: 0; pointer-events: none; }
+.loader-box { text-align: center; }
+.loader-bar {
+  width: 240px; height: 14px;
+  border: 1px solid var(--neon);
+  border-radius: 7px;
+  overflow: hidden;
+  background: #020812;
+  box-shadow: 0 0 14px rgba(25,247,200,0.3);
+}
+.loader-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--neon), var(--neon2));
+  transition: width 0.3s ease;
+}
+.loader-txt {
+  margin-top: 10px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--neon);
+  text-transform: uppercase;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  #hud { font-size: 11px; padding: 8px 10px; }
+  #infocard { width: 210px; }
+}
