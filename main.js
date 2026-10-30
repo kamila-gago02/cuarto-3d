@@ -134,6 +134,9 @@ scene.add(deskLampLight); registry.deskLampLight = deskLampLight;
 // =========================================================
 const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...opts });
 const metal = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.9, ...opts });
+// material para HITBOXES de raycast: transparente pero SI raycasteable
+// (un mesh con visible:false es ignorado por el Raycaster; opacity:0 no lo es)
+const hitboxMat = () => new THREE.MeshBasicMaterial({ transparent:true, opacity:0, depthWrite:false });
 
 // PRNG determinista (mulberry32) — texturas reproducibles sin repeticion obvia
 function makeRng(seed){ let a=seed>>>0; return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
@@ -350,9 +353,23 @@ function makeWindow(wallSide, zx, cfgName){
   grp.add(curtL,curtR);
   grp.userData.curtL=curtL; grp.userData.curtR=curtR; grp.userData.open=false;
 
-  // posicion segun pared
-  if(wallSide==='back'){ grp.position.set(zx, 3.0, -HALF+0.08); }
-  else if(wallSide==='right'){ grp.position.set(HALF-0.08, 3.0, zx); grp.rotation.y=-Math.PI/2; }
+  // Panel de pared alrededor del hueco (MISMO color que la pared) para dar
+  // coherencia: la ventana se "empotra" en vez de parecer pegada.
+  const wallCol = (wallSide==='right') ? PAL.lila : PAL.lila; // ambas lila por defecto
+  const reveal = mat(wallCol,{roughness:0.96});
+  // jamba interior (caja hueca simulada con 4 piezas finas rodeando el cristal)
+  const jd=0.22; // profundidad del alfeizar hacia dentro
+  grp.add(box(W+0.5,0.16,jd,reveal,0,Hh/2+0.2,-jd/2+0.02));   // dintel
+  grp.add(box(W+0.5,0.16,jd,reveal,0,-Hh/2-0.2,-jd/2+0.02));  // alfeizar
+  grp.add(box(0.16,Hh+0.5,jd,reveal,-W/2-0.2,0,-jd/2+0.02));  // jamba izq
+  grp.add(box(0.16,Hh+0.5,jd,reveal, W/2+0.2,0,-jd/2+0.02));  // jamba der
+
+  // hitbox grande para apuntar facil — raycasteable
+  const hit=box(W+0.3,Hh+0.3,0.3, hitboxMat(),0,0,0.12); grp.add(hit);
+
+  // posicion segun pared (empotrada: el cristal queda a ras de pared, el marco hacia dentro)
+  if(wallSide==='back'){ grp.position.set(zx, 3.0, -HALF+0.06); }
+  else if(wallSide==='right'){ grp.position.set(HALF-0.06, 3.0, zx); grp.rotation.y=-Math.PI/2; }
   scene.add(grp);
 
   makeInteractive(grp, {
@@ -570,16 +587,19 @@ function toggleLamp(){
 //  SWITCH de pared + BOLA DISCO (apaga todo el cuarto)
 // =========================================================
 function buildSwitchAndDisco(){
-  // switch en pared derecha junto a la puerta
-  const plate=box(0.22,0.32,0.04, mat('#f0ecf8'), HALF-0.06, 1.5, 0.4);
-  plate.rotation.y=-Math.PI/2; scene.add(plate);
-  const lever=box(0.08,0.14,0.05, mat('#333'), HALF-0.08, 1.56, 0.4);
-  lever.rotation.y=-Math.PI/2; scene.add(lever); registry.switchLever=lever;
+  // switch en pared derecha junto a la puerta — agrupado para interactuar como un todo
+  const sw=new THREE.Group();
+  const plate=box(0.22,0.32,0.04, mat('#f0ecf8'), 0,0,0); sw.add(plate);
+  const lever=box(0.08,0.14,0.05, mat('#333'), 0,0.06,0.02); sw.add(lever); registry.switchLever=lever;
+  // hitbox grande (facil de apuntar desde lejos) — raycasteable
+  const swHit=box(0.6,0.7,0.3, hitboxMat(), 0,0,0.1); sw.add(swHit);
+  sw.position.set(HALF-0.07, 1.5, 0.4); sw.rotation.y=-Math.PI/2; scene.add(sw);
+  registry.switchGroup=sw;
 
-  makeInteractive(plate, {
+  makeInteractive(sw, {
     name:'Switch del cuarto',
     info:'Interruptor general. Clic (o E) para apagar las luces del cuarto: aparece una bola disco. Otra vez para volver a la luz.',
-    focus: focusAt(new THREE.Vector3(HALF-0.5,1.6,0.4), -Math.PI/2),
+    focus: focusAt(new THREE.Vector3(HALF-0.6,1.6,0.4), -Math.PI/2),
     onClick: ()=> toggleRoomPower(),
   });
 
@@ -606,19 +626,19 @@ function buildSwitchAndDisco(){
 let roomPower=true;
 function toggleRoomPower(){
   roomPower=!roomPower;
-  const lever=registry.switchLever; lever.position.y = roomPower?1.56:1.44;
+  const lever=registry.switchLever; lever.position.y = roomPower?0.06:-0.06; // posicion LOCAL al grupo
   if(!roomPower){
     // apagar cuarto
-    registry.sun.intensity=0.15; registry.sunHemi.intensity=0.15; registry.ambient.intensity=0.05;
+    registry.sun.intensity=0.12; registry.sunHemi.intensity=0.12;
     registry.leds.forEach(l=>l.intensity=0.08);
-    scene.background=new THREE.Color('#0a0a16');
+    scene.background=new THREE.Color('#0a0a16'); scene.fog.color.set('#0a0a16');
     // bajar bola disco
     registry.discoOn=true;
     animateDisco(true);
   } else {
-    registry.sun.intensity=2.4; registry.sunHemi.intensity=0.7; registry.ambient.intensity=0.35;
+    registry.sun.intensity=2.6; registry.sunHemi.intensity=0.85;
     registry.leds[0].intensity=0.6; registry.leds[1].intensity=0.5;
-    scene.background=new THREE.Color('#d9c7f0');
+    scene.background=new THREE.Color('#d9c7f0'); scene.fog.color.set('#cdbce8');
     registry.discoOn=false;
     animateDisco(false);
     registry.discoSpots.forEach(s=>s.intensity=0);
@@ -934,6 +954,8 @@ function buildSolder(){
   const handle=cyl(0.03,0.03,0.26,mat('#1b63c4')); handle.rotation.z=0.9; handle.position.set(-0.34,0.18,0.26); g.add(handle);
   const tip=cyl(0.008,0.02,0.12,metal('#c8803a')); tip.rotation.z=0.9; tip.position.set(-0.19,0.26,0.26); g.add(tip);
   registry.ironTipLocal=new THREE.Vector3(-0.12,0.33,0.26);
+  // hitbox para apuntar facil toda la estacion — raycasteable
+  g.add(box(1.0,0.6,0.8, hitboxMat(),0,0.25,0.1));
   const spot=deskSpot('solder'); g.position.copy(spot); g.scale.setScalar(0.95); scene.add(g); registry.solderGroup=g;
   const smokeTex=makeCanvasTexture((gx,w,h)=>{ const r=gx.createRadialGradient(w/2,h/2,2,w/2,h/2,w/2); r.addColorStop(0,'rgba(210,210,210,0.9)'); r.addColorStop(1,'rgba(210,210,210,0)'); gx.fillStyle=r; gx.fillRect(0,0,w,h); },64,64);
   const smoke=new THREE.Group(); g.add(smoke); const puffs=[];
@@ -1128,9 +1150,12 @@ const hudPrompt=document.getElementById('hudPrompt');
 function updateLook(){
   // raycast desde el centro de la pantalla (direccion de camara)
   raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+  // En 3a persona la camara esta ~3m detras del avatar, asi que el alcance
+  // efectivo debe contar esa distancia. Usamos un alcance generoso.
+  const reach = player.thirdPerson ? 8.5 : 5.5;
   const hits=raycaster.intersectObjects(clickable,true);
   let root=null;
-  if(hits.length && hits[0].distance<4.5){ root=resolveRoot(hits[0].object); }
+  if(hits.length && hits[0].distance<reach){ root=resolveRoot(hits[0].object); }
   if(root!==lookTarget){ if(lookTarget)setGlow(lookTarget,false); lookTarget=root; if(lookTarget)setGlow(lookTarget,true); }
   if(lookTarget){ hudPrompt.textContent='E / clic: '+lookTarget.userData.name; hudPrompt.classList.add('active'); }
   else { hudPrompt.textContent='\u00A0'; hudPrompt.classList.remove('active'); }
