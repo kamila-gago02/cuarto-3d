@@ -3,29 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>::: MI CUARTO 3D ::: [[ eng.student.room ]]</title>
+  <title>::: MI CUARTO 3D ::: [[ chic.geek.room ]]</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- ======= OVERLAY RETRO 2000s ======= -->
   <div id="scanlines"></div>
 
-  <header id="topbar">
-    <div class="marquee">
-      <span>&#9733; BIENVENIDO A MI CUARTO 3D &#9733; ROCK 80-90 &#9733; VINILOS &#9733; IMPRESORA 3D &#9733; BRAZO ROBOTICO &#9733; ROBOT &#9733; LAPTOP &#9733; LEGO &#9733; SOLDADURA &#9733; HAZ CLIC EN LAS COSAS &#9733;</span>
-    </div>
-  </header>
+  <!-- ======= PANTALLA DE INICIO / CREADOR DE AVATAR ======= -->
+  <div id="startScreen">
+    <div class="start-card">
+      <h1>MI CUARTO <span>3D</span></h1>
+      <p class="start-sub">chic &middot; geek &middot; rock</p>
 
-  <!-- ======= HUD de ayuda ======= -->
-  <div id="hud">
-    <div class="hud-title">[ CONTROLES ]</div>
-    <div class="hud-line">&#8635; Arrastrar: girar camara</div>
-    <div class="hud-line">&#8597; Rueda: zoom</div>
-    <div class="hud-line">&#9995; Clic derecho + arrastrar: mover</div>
-    <div class="hud-line hud-hint">&#9758; Haz clic en los objetos que brillan</div>
+      <div class="creator">
+        <div class="preview"><canvas id="avatarPreview" width="200" height="260"></canvas></div>
+        <div class="opts">
+          <label>Nombre</label>
+          <input id="avName" type="text" maxlength="14" placeholder="tu nombre" value="kamil" />
+
+          <label>Piel</label>
+          <div class="swatches" data-group="skin"></div>
+
+          <label>Pelo</label>
+          <div class="swatches" data-group="hair"></div>
+
+          <label>Camiseta</label>
+          <div class="swatches" data-group="shirt"></div>
+
+          <label>Pantalon</label>
+          <div class="swatches" data-group="pants"></div>
+        </div>
+      </div>
+
+      <button id="enterBtn">ENTRAR AL CUARTO &#9654;</button>
+      <div class="start-controls">
+        WASD moverse &middot; raton mirar (clic para capturar) &middot; V cambiar vista &middot; E interactuar &middot; ESC soltar raton
+      </div>
+    </div>
   </div>
 
-  <!-- ======= Panel de info del objeto ======= -->
+  <!-- ======= HUD en juego ======= -->
+  <div id="hud" class="hidden">
+    <div class="hud-title">[ <span id="hudName">kamil</span> ]</div>
+    <div class="hud-line"><b>WASD</b> moverse &middot; <b>raton</b> mirar</div>
+    <div class="hud-line"><b>V</b> 1a/3a persona &middot; <b>E</b> interactuar</div>
+    <div class="hud-line hud-hint" id="hudPrompt">&nbsp;</div>
+  </div>
+
+  <!-- aviso para capturar raton -->
+  <div id="clickToPlay" class="hidden">clic para mirar alrededor</div>
+
+  <!-- ======= Panel de info ======= -->
   <div id="infocard" class="hidden">
     <button id="infoClose" title="cerrar">&times;</button>
     <div id="infoTitle">objeto</div>
@@ -46,24 +74,55 @@
     <div class="rc-hints">prueba: hola &middot; baila &middot; girar &middot; color rojo &middot; ayuda</div>
   </div>
 
+  <!-- ======= Navegador de la laptop ======= -->
+  <div id="browser" class="hidden">
+    <div class="br-chrome">
+      <span class="br-dot red"></span><span class="br-dot yellow"></span><span class="br-dot green"></span>
+      <div class="br-url"><span class="br-lock">&#128274;</span> https://mi-cuarto.dev/apps</div>
+      <button id="brClose" title="cerrar">&times;</button>
+    </div>
+    <div class="br-body">
+      <div class="br-welcome">mis apps &#9733;</div>
+      <div class="br-apps">
+        <button class="app" data-app="music">
+          <div class="app-ico" style="--c1:#1db954;--c2:#0a7a36">&#9835;</div>
+          <div class="app-name">Musica</div><div class="app-sub">mi playlist</div>
+        </button>
+        <button class="app" data-app="linkedin">
+          <div class="app-ico" style="--c1:#0a66c2;--c2:#063f78">in</div>
+          <div class="app-name">LinkedIn</div><div class="app-sub">mi perfil</div>
+        </button>
+        <button class="app" data-app="shop">
+          <div class="app-ico" style="--c1:#ff9900;--c2:#c47400">&#128722;</div>
+          <div class="app-name">Tienda</div><div class="app-sub">compras</div>
+        </button>
+        <button class="app" data-app="game">
+          <div class="app-ico" style="--c1:#8a6bff;--c2:#ff4fa3">&#127918;</div>
+          <div class="app-name">Minijuego</div><div class="app-sub">jugar</div>
+        </button>
+      </div>
+      <div id="gameWrap" class="hidden">
+        <canvas id="gameCanvas" width="420" height="300"></canvas>
+        <div class="game-hint">flechas / A-D para mover &middot; ESC cierra</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ======= Loader ======= -->
-  <div id="loader">
+  <div id="loader" class="hidden">
     <div class="loader-box">
       <div class="loader-bar"><div class="loader-fill"></div></div>
-      <div class="loader-txt">cargando cuarto...</div>
+      <div class="loader-txt">entrando al cuarto...</div>
     </div>
   </div>
 
   <canvas id="scene"></canvas>
 
-  <!-- Three.js via import map (CDN, sin build) -->
   <script type="importmap">
-  {
-    "imports": {
+  { "imports": {
       "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
       "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
-  }
+  } }
   </script>
   <script type="module" src="main.js"></script>
 </body>

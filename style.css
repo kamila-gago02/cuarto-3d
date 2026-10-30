@@ -238,10 +238,212 @@ html, body {
   text-transform: uppercase;
 }
 
+/* ---------- Navegador de la laptop ---------- */
+#browser {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 55;
+  width: min(760px, 94vw);
+  height: min(520px, 84vh);
+  background: #0c1326;
+  border: 1px solid #3a4a7a;
+  border-radius: 12px;
+  box-shadow: 0 20px 70px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05) inset;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.br-chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #1b2440, #141c33);
+  border-bottom: 1px solid #2b3860;
+}
+.br-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.br-dot.red { background: #ff5f57; } .br-dot.yellow { background: #febc2e; } .br-dot.green { background: #28c840; }
+.br-url {
+  flex: 1;
+  margin: 0 6px;
+  background: #06101f;
+  border: 1px solid #2b3860;
+  border-radius: 14px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: #9fc2d6;
+  letter-spacing: 0.3px;
+}
+.br-lock { font-size: 10px; margin-right: 4px; }
+#brClose {
+  background: transparent; border: none; color: #cbd6ee;
+  font-size: 20px; cursor: pointer; line-height: 1;
+}
+#brClose:hover { color: #ff4fa3; }
+.br-body {
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
+  background: radial-gradient(circle at 30% 10%, #16203c, #0a1020 70%);
+}
+.br-welcome {
+  font-size: 20px; color: var(--neon); letter-spacing: 2px;
+  margin-bottom: 20px; font-weight: bold;
+}
+.br-apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 18px;
+}
+.app {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid #2b3860;
+  border-radius: 14px;
+  padding: 18px 14px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--ink);
+  font-family: var(--mono);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s;
+}
+.app:hover { transform: translateY(-4px); border-color: var(--neon); box-shadow: 0 10px 26px rgba(0,0,0,0.5); }
+.app-ico {
+  width: 62px; height: 62px; margin: 0 auto 10px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, var(--c1), var(--c2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: bold; color: #fff;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+.app-name { font-size: 14px; font-weight: bold; }
+.app-sub { font-size: 11px; color: #7fa7b8; margin-top: 2px; }
+#gameWrap { margin-top: 18px; text-align: center; }
+#gameCanvas {
+  background: #05060f;
+  border: 2px solid var(--neon);
+  border-radius: 10px;
+  max-width: 100%;
+  box-shadow: 0 0 24px rgba(25,247,200,0.3);
+}
+.game-hint { font-size: 11px; color: #7fa7b8; margin-top: 8px; }
+
+/* ---------- Boton VOLVER ---------- */
+#backBtn {
+  position: fixed;
+  top: 40px;
+  left: 14px;
+  z-index: 45;
+  background: linear-gradient(90deg, #ff4fa3, #8a6bff);
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-family: var(--mono);
+  font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(138, 107, 255, 0.5);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+#backBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(255, 79, 163, 0.6); }
+#backBtn:active { transform: translateY(0); }
+
 .hidden { display: none !important; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
   #hud { font-size: 11px; padding: 8px 10px; }
   #infocard { width: 210px; }
+}
+
+
+/* =========================================================
+   v3 — pantalla de inicio, avatar, HUD juego
+   ========================================================= */
+
+/* ---------- Pantalla de inicio ---------- */
+#startScreen {
+  position: fixed; inset: 0; z-index: 70;
+  background: radial-gradient(circle at 50% 30%, #241b40, #0a0a16 75%);
+  display: flex; align-items: center; justify-content: center;
+}
+#startScreen.gone { display: none; }
+.start-card {
+  width: min(680px, 94vw);
+  background: var(--panel);
+  border: 1px solid #8a6bff;
+  border-radius: 16px;
+  padding: 26px 28px 22px;
+  box-shadow: 0 20px 70px rgba(138,107,255,0.4);
+  text-align: center;
+}
+.start-card h1 {
+  margin: 0 0 2px; font-size: 34px; letter-spacing: 3px;
+  color: #fff; text-shadow: 0 0 18px rgba(255,79,163,0.6);
+}
+.start-card h1 span { color: var(--neon); }
+.start-sub { margin: 0 0 18px; color: var(--amber); letter-spacing: 4px; font-size: 12px; }
+.creator { display: flex; gap: 22px; text-align: left; }
+.preview {
+  flex: 0 0 200px;
+  background: linear-gradient(160deg, #1a2140, #0c0f1f);
+  border: 1px solid #3a4a7a; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.opts { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.opts label { font-size: 11px; color: var(--neon); letter-spacing: 1px; margin-top: 6px; }
+#avName {
+  background: #06101f; border: 1px solid #2b3860; color: var(--ink);
+  font-family: var(--mono); font-size: 14px; padding: 7px 9px; border-radius: 6px; outline: none;
+}
+#avName:focus { border-color: var(--neon); }
+.swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+.sw {
+  width: 26px; height: 26px; border-radius: 7px; cursor: pointer;
+  border: 2px solid transparent; transition: transform 0.1s;
+}
+.sw:hover { transform: scale(1.12); }
+.sw.sel { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.7); }
+#enterBtn {
+  margin-top: 20px; width: 100%;
+  background: linear-gradient(90deg, #ff4fa3, #8a6bff);
+  color: #fff; border: 2px solid #fff; border-radius: 12px;
+  padding: 13px; font-family: var(--mono); font-weight: bold;
+  font-size: 15px; letter-spacing: 2px; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(138,107,255,0.5); transition: transform 0.12s;
+}
+#enterBtn:hover { transform: translateY(-2px); }
+.start-controls { margin-top: 12px; font-size: 11px; color: #7fa7b8; line-height: 1.6; }
+
+/* ---------- Aviso clic para capturar raton ---------- */
+#clickToPlay {
+  position: fixed; inset: 0; z-index: 44;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(5,6,15,0.35);
+  color: #fff; font-size: 22px; letter-spacing: 2px;
+  text-shadow: 0 2px 10px #000; cursor: pointer;
+}
+
+/* ---------- Prompt de interaccion ---------- */
+#hudPrompt {
+  color: var(--amber);
+  min-height: 18px;
+}
+#hudPrompt.active {
+  color: #06121f;
+  background: var(--amber);
+  border-radius: 5px;
+  padding: 2px 8px;
+  display: inline-block;
+  font-weight: bold;
+}
+
+/* crosshair sutil en primera persona */
+#scene.fp-cursor { cursor: none; }
+
+@media (max-width: 640px) {
+  .creator { flex-direction: column; }
+  .preview { align-self: center; }
 }
