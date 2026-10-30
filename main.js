@@ -5,6 +5,39 @@
 // =========================================================
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// =========================================================
+//  PALETA (identidad chic-geek: lila, rosa, cian + neutros)
+// =========================================================
+const PAL = {
+  lila:      '#b98fe0',
+  lilaSoft:  '#a97fd4',
+  lilaPale:  '#e7ddf5',
+  rosa:      '#ff4fa3',
+  rosaNeon:  '#ff6ec7',
+  cian:      '#4de0d0',
+  cianNeon:  '#5ad1ff',
+  amber:     '#ffd98a',
+  blanco:    '#f4f1fb',
+  neutro:    '#cfcfd6',
+  madera:    '#c98a4e',
+  maderaDk:  '#7a5230',
+  piso:      '#caa06e',
+  ink:       '#15161c',
+};
+
+// Capa de BLOOM selectivo (solo lo que pongamos en esta capa brilla)
+const BLOOM_LAYER = 1;
+const bloomLayer = new THREE.Layers();
+bloomLayer.set(BLOOM_LAYER);
+function markBloom(obj){ obj.traverse(o=>{ if(o.isMesh||o.isSprite||o.isPoints) o.layers.enable(BLOOM_LAYER); }); if(obj.isMesh||obj.isSprite) obj.layers.enable(BLOOM_LAYER); }
 
 // ---------- Estado global ----------
 const clickable  = [];   // meshes interactivos (raycast)
@@ -26,17 +59,19 @@ const AVATAR = { name: 'kamil', skin: '#e8b48c', hair: '#3a2a1a', shirt: '#ff4fa
 //  RENDERER / ESCENA
 // =========================================================
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false }); // AA lo hace SMAA en el composer
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#d9c7f0');
+// niebla atmosferica MUY ligera (profundidad en las esquinas)
+scene.fog = new THREE.Fog('#cdbce8', 16, 34);
 
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -67,14 +102,14 @@ let avatar = null;
 const camZoom = { active: false, t: 0, dur: 0.7, from: new THREE.Vector3(), to: new THREE.Vector3(), fromTgt: new THREE.Vector3(), toTgt: new THREE.Vector3(), hold: 0 };
 
 // =========================================================
-//  LUCES (dia soleado + calidas interiores) — chic geek
+//  LUCES (simplificadas): 1 clave direccional con sombra,
+//  hemisferica suave de relleno y el environment map (IBL).
+//  Sin AmbientLight (lo cubre hemi+IBL). PointLights sin sombra.
 // =========================================================
-const sunHemi = new THREE.HemisphereLight('#fff6e8', '#b9a0d8', 0.7);
+const sunHemi = new THREE.HemisphereLight('#fff6e8', '#b9a0d8', 0.85);
 scene.add(sunHemi);
-const ambient = new THREE.AmbientLight('#ffffff', 0.35);
-scene.add(ambient);
 
-const sun = new THREE.DirectionalLight('#fff2d0', 2.4);
+const sun = new THREE.DirectionalLight('#fff2d0', 2.6);
 sun.position.set(-8, 10, 6);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -82,16 +117,16 @@ sun.shadow.camera.near = 1; sun.shadow.camera.far = 40;
 sun.shadow.camera.left=-12; sun.shadow.camera.right=12; sun.shadow.camera.top=12; sun.shadow.camera.bottom=-12;
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 scene.add(sun);
-registry.sun = sun; registry.sunHemi = sunHemi; registry.ambient = ambient;
+registry.sun = sun; registry.sunHemi = sunHemi;
 
-// LED strips chic geek (se controlan con el switch)
-const ledPink = new THREE.PointLight('#ff6ec7', 0.6, 14); ledPink.position.set(-4, 3.6, -2); scene.add(ledPink);
-const ledCyan = new THREE.PointLight('#5ad1ff', 0.5, 14); ledCyan.position.set(4, 3.2, -3.5); scene.add(ledCyan);
+// LED strips chic geek (color de ambiente, SIN sombras — baratas)
+const ledPink = new THREE.PointLight(PAL.rosaNeon, 0.6, 14); ledPink.position.set(-4, 3.6, -2); scene.add(ledPink);
+const ledCyan = new THREE.PointLight(PAL.cianNeon, 0.5, 14); ledCyan.position.set(4, 3.2, -3.5); scene.add(ledCyan);
 registry.leds = [ledPink, ledCyan];
 
-// lampara de escritorio (controlable)
-const deskLampLight = new THREE.PointLight('#ffd9a0', 0.0, 6, 2); // empieza apagada
-deskLampLight.position.set(-2.0, 2.6, -3.6); deskLampLight.castShadow = true; deskLampLight.shadow.mapSize.set(1024,1024);
+// lampara de escritorio (controlable) — SIN sombra (era el point-light caro)
+const deskLampLight = new THREE.PointLight('#ffd9a0', 0.0, 6, 2);
+deskLampLight.position.set(-2.0, 2.6, -3.6);
 scene.add(deskLampLight); registry.deskLampLight = deskLampLight;
 
 // =========================================================
@@ -100,10 +135,29 @@ scene.add(deskLampLight); registry.deskLampLight = deskLampLight;
 const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...opts });
 const metal = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.9, ...opts });
 
-function box(w,h,d,material,x=0,y=0,z=0){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m; }
+// PRNG determinista (mulberry32) — texturas reproducibles sin repeticion obvia
+function makeRng(seed){ let a=seed>>>0; return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+
+// caja con bordes redondeados (elimina el look "caja CG").
+// radio proporcional al lado menor, con tope pequeno; cae a BoxGeometry si es muy fina.
+const _boxCache = new Map();
+function box(w,h,d,material,x=0,y=0,z=0){
+  const minDim=Math.min(w,h,d);
+  let geo;
+  if(minDim < 0.06){ geo=new THREE.BoxGeometry(w,h,d); }
+  else {
+    const r=Math.min(0.04, minDim*0.18);
+    const key=`${w.toFixed(3)}_${h.toFixed(3)}_${d.toFixed(3)}_${r.toFixed(3)}`;
+    geo=_boxCache.get(key);
+    if(!geo){ geo=new RoundedBoxGeometry(w,h,d,2,r); _boxCache.set(key,geo); }
+  }
+  const m=new THREE.Mesh(geo,material); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m;
+}
 function cyl(rt,rb,h,material,seg=24){ const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),material); m.castShadow=true; m.receiveShadow=true; return m; }
 
 function makeCanvasTexture(draw,w=256,h=256){ const c=document.createElement('canvas'); c.width=w;c.height=h; const g=c.getContext('2d'); draw(g,w,h); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8; return t; }
+// textura lineal (normal/roughness NO van en sRGB)
+function makeDataTexture(draw,w=256,h=256){ const c=document.createElement('canvas'); c.width=w;c.height=h; const g=c.getContext('2d'); draw(g,w,h); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.NoColorSpace; t.anisotropy=8; return t; }
 function roundRect(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
 
 // registra un collider AABB a partir de un mesh/caja en world
@@ -122,28 +176,62 @@ function makeInteractive(root, cfg){
 //  CUARTO CERRADO (4 paredes + techo + piso)
 // =========================================================
 function buildRoom(){
-  // ---- Piso parquet claro ----
+  // ---- Piso parquet DETERMINISTA (semilla fija) con color+roughness+normal ----
+  const PW=1024, PH=1024, rows=8, cols=4, plankW=PW/cols, plankH=PH/rows;
+  const rng=makeRng(13377);
+  // color
   const plankTex = makeCanvasTexture((g,w,h)=>{
-    g.fillStyle='#caa06e'; g.fillRect(0,0,w,h);
-    for(let row=0;row<6;row++)for(let col=0;col<3;col++){ const x=col*w/3+(row%2)*(w/6);
-      const s=175+Math.floor(Math.random()*40); g.fillStyle=`rgb(${s},${Math.floor(s*0.7)},${Math.floor(s*0.45)})`;
-      g.fillRect(x,row*h/6,w/3-3,h/6-3); }
-    g.strokeStyle='rgba(80,45,15,0.3)'; g.lineWidth=2;
-    for(let i=0;i<=6;i++){ g.beginPath(); g.moveTo(0,i*h/6); g.lineTo(w,i*h/6); g.stroke(); }
-  },512,512);
-  plankTex.wrapS=plankTex.wrapT=THREE.RepeatWrapping; plankTex.repeat.set(3,3);
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,ROOM), new THREE.MeshStandardMaterial({map:plankTex,roughness:0.6}));
+    g.fillStyle=PAL.piso; g.fillRect(0,0,w,h);
+    for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+      const offset=(row%2)*(plankW/2);
+      const x=((col*plankW+offset)%w), y=row*plankH;
+      const s=168+Math.floor(rng()*46);
+      const r=s, gg=Math.floor(s*0.68+rng()*8), b=Math.floor(s*0.42+rng()*6);
+      g.fillStyle=`rgb(${r},${gg},${b})`; g.fillRect(x+1,y+1,plankW-2,plankH-2);
+      if(x+plankW>w){ g.fillRect(x-w+1,y+1,plankW-2,plankH-2); }
+      // vetas
+      g.strokeStyle=`rgba(90,55,20,${0.08+rng()*0.1})`; g.lineWidth=1;
+      for(let v=0;v<5;v++){ const vy=y+6+v*(plankH/6)+rng()*4; g.beginPath(); g.moveTo(x+2,vy); g.bezierCurveTo(x+plankW*0.3,vy+2,x+plankW*0.6,vy-2,x+plankW-2,vy); g.stroke(); }
+    }
+    g.strokeStyle='rgba(60,35,12,0.35)'; g.lineWidth=2;
+    for(let i=0;i<=rows;i++){ g.beginPath(); g.moveTo(0,i*plankH); g.lineTo(w,i*plankH); g.stroke(); }
+  },PW,PH);
+  // roughness: tablones ligeramente distintos + brillo en juntas
+  const rng2=makeRng(13377);
+  const plankRough = makeDataTexture((g,w,h)=>{
+    for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+      const offset=(row%2)*(plankW/2); const x=((col*plankW+offset)%w), y=row*plankH;
+      const v=150+Math.floor(rng2()*70); g.fillStyle=`rgb(${v},${v},${v})`; g.fillRect(x,y,plankW,plankH);
+    }
+    g.strokeStyle='rgba(60,60,60,1)'; g.lineWidth=3; // juntas mas pulidas (mas oscuro = menos rough)
+    for(let i=0;i<=rows;i++){ g.beginPath(); g.moveTo(0,i*plankH); g.lineTo(w,i*plankH); g.stroke(); }
+  },PW,PH);
+  // normal: relieve en las juntas
+  const plankNormal = makeDataTexture((g,w,h)=>{
+    g.fillStyle='rgb(128,128,255)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgb(128,180,220)'; g.lineWidth=2;
+    for(let i=0;i<=rows;i++){ g.beginPath(); g.moveTo(0,i*plankH); g.lineTo(w,i*plankH); g.stroke(); }
+    g.strokeStyle='rgb(128,80,220)'; g.lineWidth=2;
+    for(let i=0;i<=rows;i++){ g.beginPath(); g.moveTo(0,i*plankH+2); g.lineTo(w,i*plankH+2); g.stroke(); }
+  },PW,PH);
+  [plankTex,plankRough,plankNormal].forEach(t=>{ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(2,2); });
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,ROOM), new THREE.MeshStandardMaterial({
+    map:plankTex, roughnessMap:plankRough, normalMap:plankNormal, normalScale:new THREE.Vector2(0.4,0.4), roughness:0.7, metalness:0.0 }));
   floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
 
   // ---- Techo ----
-  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,ROOM), mat('#f3ecfb',{roughness:1}));
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,ROOM), mat(PAL.lilaPale,{roughness:1}));
   ceil.rotation.x=Math.PI/2; ceil.position.y=WALL_H; scene.add(ceil);
-  // plafon de luz
-  scene.add(box(1.4,0.06,1.4, new THREE.MeshStandardMaterial({color:'#fff',emissive:'#fff',emissiveIntensity:0.5}), 0,WALL_H-0.05,0));
+  // plafon de luz (brilla con bloom)
+  const plafon=box(1.4,0.06,1.4, new THREE.MeshStandardMaterial({color:'#fff',emissive:'#fff',emissiveIntensity:0.9}), 0,WALL_H-0.05,0);
+  scene.add(plafon); markBloom(plafon);
 
-  // ---- Paredes LILAS (4) ----
-  const wallMat = new THREE.MeshStandardMaterial({ color:'#b98fe0', roughness:0.95, side:THREE.FrontSide });
-  const wallSoft= new THREE.MeshStandardMaterial({ color:'#a97fd4', roughness:0.95, side:THREE.FrontSide });
+  // ---- Paredes LILAS (4) con leve textura de pintura (normal sutil) ----
+  const wallNormal = makeDataTexture((g,w,h)=>{ g.fillStyle='rgb(128,128,255)'; g.fillRect(0,0,w,h);
+    const r=makeRng(7); for(let i=0;i<2500;i++){ const x=r()*w,y=r()*h,a=r()*0.08; g.fillStyle=`rgba(128,128,255,1)`; g.fillStyle=`rgb(${120+Math.floor(r()*16)},${120+Math.floor(r()*16)},255)`; g.fillRect(x,y,2,2);} },256,256);
+  wallNormal.wrapS=wallNormal.wrapT=THREE.RepeatWrapping; wallNormal.repeat.set(4,2);
+  const wallMat = new THREE.MeshStandardMaterial({ color:PAL.lila, roughness:0.96, metalness:0.0, side:THREE.FrontSide, normalMap:wallNormal, normalScale:new THREE.Vector2(0.15,0.15) });
+  const wallSoft= new THREE.MeshStandardMaterial({ color:PAL.lilaSoft, roughness:0.96, metalness:0.0, side:THREE.FrontSide, normalMap:wallNormal, normalScale:new THREE.Vector2(0.15,0.15) });
   // back -Z
   const back=new THREE.Mesh(new THREE.PlaneGeometry(ROOM,WALL_H),wallMat); back.position.set(0,WALL_H/2,-HALF); back.receiveShadow=true; scene.add(back);
   // front +Z (mira hacia -Z interior)
@@ -168,10 +256,10 @@ function buildRoom(){
   // ---- Alfombra PELUDA ----
   buildFluffyRug(0.2, 0.012, 2.1, 2.6);
 
-  // ---- Guirnalda de luces (string lights) en pared back: chic geek ----
+  // ---- Guirnalda de luces (string lights) en pared back: chic geek (bloom) ----
   for(let i=0;i<14;i++){ const b=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,8),
-    new THREE.MeshStandardMaterial({color:'#ffd98a',emissive:'#ffcf6a',emissiveIntensity:0.9}));
-    b.position.set(-5+i*0.75, 5.1 + Math.sin(i)*0.12, -HALF+0.1); scene.add(b); }
+    new THREE.MeshStandardMaterial({color:'#ffd98a',emissive:'#ffcf6a',emissiveIntensity:1.4}));
+    b.position.set(-5+i*0.75, 5.1 + Math.sin(i)*0.12, -HALF+0.1); scene.add(b); markBloom(b); }
 
   // cuadro motivacional / poster pequeno con cita
   const quoteTex=makeCanvasTexture((g,w,h)=>{ g.fillStyle='#fff6e8'; g.fillRect(0,0,w,h);
@@ -508,7 +596,7 @@ function buildSwitchAndDisco(){
   disco.add(ball);
   disco.add(cyl(0.01,0.01,0.6,metal('#888')).translateY(0.7));
   disco.position.set(0, WALL_H+0.8, 1.5); // oculto sobre el techo
-  scene.add(disco); registry.disco=disco; registry.discoOn=false;
+  scene.add(disco); registry.disco=disco; registry.discoOn=false; markBloom(disco);
 
   // luces de la bola disco
   const spots=[];
@@ -735,7 +823,7 @@ function buildRobot(){
   const accent=new THREE.MeshStandardMaterial({color:'#4de0d0',emissive:'#064',emissiveIntensity:0.5,roughness:0.4});
   g.add(cyl(0.24,0.28,0.32,bodyMat).translateY(0.18));
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,24,16),bodyMat); head.position.y=0.46; g.add(head);
-  const visor=box(0.28,0.1,0.06,new THREE.MeshStandardMaterial({color:'#06121f',emissive:'#4de0d0',emissiveIntensity:0.7}),0,0.48,0.18); g.add(visor); registry.robotVisor=visor;
+  const visor=box(0.28,0.1,0.06,new THREE.MeshStandardMaterial({color:'#06121f',emissive:'#4de0d0',emissiveIntensity:0.7}),0,0.48,0.18); g.add(visor); registry.robotVisor=visor; visor.layers.enable(BLOOM_LAYER);
   g.add(cyl(0.012,0.012,0.2,accent).translateY(0.7));
   g.add(new THREE.Mesh(new THREE.SphereGeometry(0.035,12,12),accent).translateY(0.82));
   [-0.18,0.18].forEach(x=>{ const w=cyl(0.07,0.07,0.05,metal('#111')); w.rotation.z=Math.PI/2; w.position.set(x,0.06,0); g.add(w); });
@@ -767,7 +855,7 @@ function buildLaptop(){
   const laptop=new THREE.Group();
   laptop.add(box(0.8,0.035,0.54,gMat,0,0.018,0));
   const lid=new THREE.Group(); lid.add(box(0.8,0.5,0.028,gMat,0,0.25,0));
-  const ls=new THREE.Mesh(new THREE.PlaneGeometry(0.72,0.42),new THREE.MeshBasicMaterial({map:desktopTexture('laptop')})); ls.position.set(0,0.25,0.018); lid.add(ls);
+  const ls=new THREE.Mesh(new THREE.PlaneGeometry(0.72,0.42),new THREE.MeshBasicMaterial({map:desktopTexture('laptop')})); ls.position.set(0,0.25,0.018); lid.add(ls); ls.layers.enable(BLOOM_LAYER);
   lid.position.z=-0.27; lid.rotation.x=-0.3; laptop.add(lid);
   laptop.add(box(0.72,0.01,0.34,mat('#15161c'),0,0.04,0.06));
   for(let r=0;r<4;r++)for(let c=0;c<11;c++) laptop.add(box(0.045,0.012,0.045,mat('#2a2d38'),-0.3+c*0.06,0.05,-0.02+r*0.065));
@@ -778,7 +866,7 @@ function buildLaptop(){
   monitor.add(box(0.1,0.42,0.1,gMat,0,0.21,0));
   monitor.add(box(0.5,0.03,0.3,gMat,0,0.02,0));
   monitor.add(box(1.25,0.78,0.05,mat('#111'),0,0.82,0));
-  const ms=new THREE.Mesh(new THREE.PlaneGeometry(1.15,0.68),new THREE.MeshBasicMaterial({map:desktopTexture('monitor')})); ms.position.set(0,0.82,0.03); monitor.add(ms); registry.monitorScreen=ms;
+  const ms=new THREE.Mesh(new THREE.PlaneGeometry(1.15,0.68),new THREE.MeshBasicMaterial({map:desktopTexture('monitor')})); ms.position.set(0,0.82,0.03); monitor.add(ms); registry.monitorScreen=ms; ms.layers.enable(BLOOM_LAYER);
   // colocado justo detras de la laptop (hacia -X respecto a la silla), misma orientacion
   monitor.position.set(spotL.x-0.55, registry.deskY, spotL.z);
   monitor.rotation.y=FACE; monitor.scale.setScalar(0.9); scene.add(monitor);
@@ -1161,9 +1249,82 @@ initCreator();
 document.getElementById('enterBtn').onclick=startGameWorld;
 
 // =========================================================
+//  POST-PROCESADO: bloom SELECTIVO (solo capa BLOOM) + SMAA + vignette
+//  Tecnica de dos composers: 1) render de la escena con todo oscurecido
+//  menos la capa bloom -> UnrealBloom. 2) composer final que suma ese
+//  bloom sobre la escena completa, aplica vignette y SMAA.
+// =========================================================
+const bloomParams = { strength: 0.75, radius: 0.5, threshold: 0.0 };
+
+// Composer 1: solo bloom
+const renderScene = new RenderPass(scene, camera);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), bloomParams.strength, bloomParams.radius, bloomParams.threshold);
+const composerBloom = new EffectComposer(renderer);
+composerBloom.renderToScreen = false;
+composerBloom.addPass(renderScene);
+composerBloom.addPass(bloomPass);
+
+// Shader que mezcla (base + bloom) y aplica vignette sutil
+const mixPass = new ShaderPass(new THREE.ShaderMaterial({
+  uniforms: {
+    baseTexture:  { value: null },
+    bloomTexture: { value: composerBloom.renderTarget2.texture },
+    vignette:     { value: 0.28 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D baseTexture;
+    uniform sampler2D bloomTexture;
+    uniform float vignette;
+    varying vec2 vUv;
+    void main(){
+      vec4 base = texture2D(baseTexture, vUv);
+      vec4 bloom = texture2D(bloomTexture, vUv);
+      vec3 col = base.rgb + bloom.rgb;            // bloom aditivo
+      // vignette suave
+      vec2 q = vUv - 0.5;
+      float v = smoothstep(0.85, 0.35, length(q));
+      col *= mix(1.0, v, vignette);
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+  defines: {},
+}), 'baseTexture');
+mixPass.needsSwap = true;
+
+const composerFinal = new EffectComposer(renderer);
+composerFinal.addPass(renderScene);
+composerFinal.addPass(mixPass);
+const smaaPass = new SMAAPass(window.innerWidth*renderer.getPixelRatio(), window.innerHeight*renderer.getPixelRatio());
+composerFinal.addPass(smaaPass);
+composerFinal.addPass(new OutputPass());
+
+// Para el pase de bloom: ennegrecer todo lo que NO esta en la capa bloom
+const darkMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const matStash = {};
+function darkenNonBloom(obj){
+  // solo Mesh (no Sprites: su SpriteMaterial no es intercambiable por MeshBasicMaterial)
+  if(obj.isMesh && !bloomLayer.test(obj.layers)){
+    matStash[obj.uuid] = obj.material; obj.material = darkMat;
+  } else if(obj.isSprite && !bloomLayer.test(obj.layers)){
+    // ocultar sprites no-bloom durante el pase
+    obj.userData._wasVisible = obj.visible; obj.visible = false;
+  }
+}
+function restoreMat(obj){
+  if(matStash[obj.uuid]){ obj.material = matStash[obj.uuid]; delete matStash[obj.uuid]; }
+  if(obj.isSprite && obj.userData._wasVisible!==undefined){ obj.visible = obj.userData._wasVisible; delete obj.userData._wasVisible; }
+}
+
+// =========================================================
 //  RESIZE + LOOP
 // =========================================================
-window.addEventListener('resize',()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
+function onResize(){
+  const w=window.innerWidth, h=window.innerHeight;
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w,h);
+  composerBloom.setSize(w,h); composerFinal.setSize(w,h);
+}
+window.addEventListener('resize', onResize);
 
 const clock=new THREE.Clock();
 function animate(){
@@ -1171,6 +1332,15 @@ function animate(){
   const dt=Math.min(clock.getDelta(),0.05);
   if(gameStarted){ updatePlayer(dt); updateCamera(dt); updateLook(); }
   for(let i=animators.length-1;i>=0;i--){ if(animators[i](dt)===false) animators.splice(i,1); }
-  renderer.render(scene,camera);
+
+  // 1) pase de bloom: oscurecer no-bloom (y quitar fondo+niebla para no contaminar), render, restaurar
+  const prevBg = scene.background; const prevFog = scene.fog;
+  scene.background = null; scene.fog = null;
+  scene.traverse(darkenNonBloom);
+  composerBloom.render();
+  scene.traverse(restoreMat);
+  scene.background = prevBg; scene.fog = prevFog;
+  // 2) pase final (escena completa + bloom + vignette + SMAA)
+  composerFinal.render();
 }
 animate();
