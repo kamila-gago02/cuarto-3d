@@ -1054,6 +1054,7 @@ window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
 
 // pointer lock para mirar
 const clickToPlay=document.getElementById('clickToPlay');
+registry.crosshair=document.getElementById('crosshair');
 function requestLock(){ canvas.requestPointerLock && canvas.requestPointerLock(); }
 document.addEventListener('pointerlockchange',()=>{ pointerLocked=(document.pointerLockElement===canvas);
   clickToPlay.classList.toggle('hidden', pointerLocked || !gameStarted);
@@ -1098,6 +1099,13 @@ function updatePlayer(dt){
   if(keys['arrowleft']) player.yaw+=dt*1.6;
   if(keys['arrowright']) player.yaw-=dt*1.6;
 
+  // joystick tactil: Y=adelante/atras, X=strafe
+  const tm=registry.touchMove;
+  if(tm && (Math.abs(tm.x)>0.08 || Math.abs(tm.y)>0.08)){
+    move.addScaledVector(fwd, -tm.y);   // arriba en pantalla = adelante
+    move.addScaledVector(rightV, tm.x);
+  }
+
   const moving=move.lengthSq()>0;
   if(moving){ move.normalize(); const next=player.pos.clone().addScaledVector(move,player.speed*dt); resolveCollisions(next); player.pos.copy(next); }
 
@@ -1133,10 +1141,12 @@ function updateCamera(dt){
     camera.position.lerp(camPos,0.2);
     camera.lookAt(eye.x, eye.y+0.2, eye.z);
     canvas.classList.remove('fp-cursor');
+    if(registry.crosshair) registry.crosshair.classList.add('hidden');
   } else {
     camera.position.copy(eye);
     camera.lookAt(eye.clone().add(dir));
     canvas.classList.add('fp-cursor');
+    if(registry.crosshair) registry.crosshair.classList.remove('hidden');
   }
 }
 
@@ -1249,29 +1259,123 @@ window.addEventListener('keydown',e=>{ if(e.key!=='Escape')return;
 });
 
 // =========================================================
-//  BUILD + ARRANQUE
+//  BUILD + ARRANQUE (loader REAL por pasos de construccion)
 // =========================================================
-function buildAll(){
-  buildRoom(); buildPosters(); buildShelves(); buildDesk(); buildDeskLamp();
-  buildSwitchAndDisco(); buildChair();
-  buildBed(); buildWardrobe(); buildDoor();
-  makeWindow('back', -2.0, 'w1'); makeWindow('right', 2.2, 'w2');
-  buildPrinter(); buildArm(); buildRobot(); buildLaptop(); buildLego(); buildSolder();
-  avatar=buildAvatar(); avatar.position.set(player.pos.x,0,player.pos.z); scene.add(avatar);
-}
+// Cada paso: [etiqueta, funcion]. El progreso = pasos hechos / total.
+const BUILD_STEPS = [
+  ['paredes y piso',        ()=>buildRoom()],
+  ['posters y vinilos',     ()=>buildPosters()],
+  ['repisas',               ()=>buildShelves()],
+  ['escritorio',            ()=>buildDesk()],
+  ['lampara',               ()=>buildDeskLamp()],
+  ['switch y bola disco',   ()=>buildSwitchAndDisco()],
+  ['silla',                 ()=>buildChair()],
+  ['cama',                  ()=>buildBed()],
+  ['armario',               ()=>buildWardrobe()],
+  ['puerta',                ()=>buildDoor()],
+  ['ventanas',              ()=>{ makeWindow('back',-2.0,'w1'); makeWindow('right',2.2,'w2'); }],
+  ['impresora 3D',          ()=>buildPrinter()],
+  ['brazo robotico',        ()=>buildArm()],
+  ['robot',                 ()=>buildRobot()],
+  ['laptop y apps',         ()=>buildLaptop()],
+  ['lego',                  ()=>buildLego()],
+  ['estacion de soldadura', ()=>buildSolder()],
+  ['tu avatar',             ()=>{ avatar=buildAvatar(); avatar.position.set(player.pos.x,0,player.pos.z); scene.add(avatar); }],
+];
 
 let gameStarted=false;
+
 function startGameWorld(){
-  const loaderEl=document.getElementById('loader'); const loaderFill=document.querySelector('.loader-fill');
+  const loaderEl=document.getElementById('loader');
+  const loaderFill=document.querySelector('.loader-fill');
+  const loaderTxt=document.getElementById('loaderTxt');
+  const loaderPct=document.getElementById('loaderPct');
   document.getElementById('startScreen').classList.add('gone');
   loaderEl.classList.remove('hidden');
-  let lp=0; const li=setInterval(()=>{ lp+=Math.random()*20+8; loaderFill.style.width=Math.min(lp,100)+'%';
-    if(lp>=100){ clearInterval(li); setTimeout(()=>{ loaderEl.classList.add('gone'); document.getElementById('hud').classList.remove('hidden'); document.getElementById('hudName').textContent=AVATAR.name; clickToPlay.classList.remove('hidden'); gameStarted=true; },300); } },120);
-  buildAll();
+
+  const total=BUILD_STEPS.length;
+  let i=0;
+  // construimos un paso por frame -> progreso REAL, sin porcentajes al azar
+  function step(){
+    if(i<total){
+      const [label,fn]=BUILD_STEPS[i];
+      loaderTxt.textContent=label+'...';
+      try{ fn(); }catch(err){ console.error('fallo construyendo',label,err); }
+      i++;
+      const pct=Math.round((i/total)*100);
+      loaderFill.style.width=pct+'%'; loaderPct.textContent=pct+'%';
+      requestAnimationFrame(step);
+    } else {
+      loaderTxt.textContent='listo';
+      setTimeout(()=>{
+        loaderEl.classList.add('gone');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('gearBtn').classList.remove('hidden');
+        document.getElementById('hudName').textContent=AVATAR.name;
+        clickToPlay.classList.remove('hidden');
+        if(IS_TOUCH){ document.getElementById('touchControls').classList.remove('hidden'); }
+        gameStarted=true;
+      },350);
+    }
+  }
+  requestAnimationFrame(step);
 }
 
 initCreator();
 document.getElementById('enterBtn').onclick=startGameWorld;
+
+// =========================================================
+//  MENU DE AJUSTES: calidad / sonido / scanlines
+// =========================================================
+const settingsEl=document.getElementById('settings');
+const gearBtn=document.getElementById('gearBtn');
+const scanlinesEl=document.getElementById('scanlines');
+const QUALITY={ low:{pr:1, shadows:false, bloom:0.4}, med:{pr:1.5, shadows:true, bloom:0.75}, high:{pr:2, shadows:true, bloom:1.0} };
+let currentQuality='med';
+
+gearBtn.onclick=()=>settingsEl.classList.toggle('hidden');
+document.getElementById('setClose').onclick=()=>settingsEl.classList.add('hidden');
+
+document.querySelectorAll('#segQuality button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#segQuality button').forEach(x=>x.classList.remove('sel'));
+  b.classList.add('sel'); applyQuality(b.dataset.q);
+}));
+function applyQuality(q){
+  currentQuality=q; const Q=QUALITY[q];
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, Q.pr));
+  renderer.shadowMap.enabled=Q.shadows; sun.castShadow=Q.shadows;
+  bloomPass.strength=Q.bloom;
+  scene.traverse(o=>{ if(o.isMesh) o.material && (o.material.needsUpdate=true); });
+  onResize();
+}
+
+// toggles (sonido / scanlines)
+const tglSound=document.getElementById('tglSound');
+const tglScan=document.getElementById('tglScan');
+let soundOn=false, scanOn=true;
+function setToggle(el,on){ el.classList.toggle('on',on); el.setAttribute('aria-checked',on?'true':'false'); }
+tglSound.onclick=()=>{ soundOn=!soundOn; setToggle(tglSound,soundOn); registry.soundOn=soundOn; };
+tglScan.onclick=()=>{ scanOn=!scanOn; setToggle(tglScan,scanOn); scanlinesEl.classList.toggle('off',!scanOn); };
+
+// =========================================================
+//  SOPORTE TACTIL: joystick virtual + botones
+// =========================================================
+const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+const touch={ x:0, y:0 }; // -1..1 vector de movimiento del joystick
+registry.touchMove=touch;
+if(IS_TOUCH){
+  const joy=document.getElementById('joystick'), knob=document.getElementById('joyKnob');
+  let active=false, cx=0, cy=0, R=45;
+  const start=e=>{ active=true; const r=joy.getBoundingClientRect(); cx=r.left+r.width/2; cy=r.top+r.height/2; move(e); };
+  const move=e=>{ if(!active)return; const t=e.touches?e.touches[0]:e; let dx=t.clientX-cx, dy=t.clientY-cy;
+    const d=Math.hypot(dx,dy); if(d>R){ dx=dx/d*R; dy=dy/d*R; }
+    knob.style.transform=`translate(${dx}px,${dy}px)`; touch.x=dx/R; touch.y=dy/R; };
+  const end=()=>{ active=false; knob.style.transform='translate(0,0)'; touch.x=0; touch.y=0; };
+  joy.addEventListener('touchstart',start,{passive:true}); joy.addEventListener('touchmove',move,{passive:true}); joy.addEventListener('touchend',end);
+  joy.addEventListener('mousedown',start); window.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  document.getElementById('btnInteract').addEventListener('click',()=>{ if(lookTarget)activate(lookTarget); });
+  document.getElementById('btnView').addEventListener('click',()=>{ player.thirdPerson=!player.thirdPerson; });
+}
 
 // =========================================================
 //  POST-PROCESADO: bloom SELECTIVO (solo capa BLOOM) + SMAA + vignette

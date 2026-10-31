@@ -2,8 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>::: MI CUARTO 3D ::: [[ chic.geek.room ]]</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mi Cuarto 3D — chic geek room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -48,6 +51,41 @@
     <div class="hud-line"><b>WASD</b> moverse &middot; <b>raton</b> mirar</div>
     <div class="hud-line"><b>V</b> 1a/3a persona &middot; <b>E</b> interactuar</div>
     <div class="hud-line hud-hint" id="hudPrompt">&nbsp;</div>
+  </div>
+
+  <!-- ======= Boton de ajustes ======= -->
+  <button id="gearBtn" class="hidden" title="Ajustes" aria-label="Ajustes">&#9881;</button>
+
+  <!-- ======= Panel de ajustes ======= -->
+  <div id="settings" class="hidden" role="dialog" aria-label="Ajustes">
+    <h3>AJUSTES</h3>
+    <div class="set-row">
+      <label>Calidad</label>
+      <div class="seg" id="segQuality" role="group" aria-label="Calidad">
+        <button data-q="low">Baja</button>
+        <button data-q="med" class="sel">Media</button>
+        <button data-q="high">Alta</button>
+      </div>
+    </div>
+    <div class="set-row">
+      <label for="tglSound">Sonido</label>
+      <button id="tglSound" class="toggle" role="switch" aria-checked="false" aria-label="Sonido"></button>
+    </div>
+    <div class="set-row">
+      <label for="tglScan">Scanlines</label>
+      <button id="tglScan" class="toggle on" role="switch" aria-checked="true" aria-label="Scanlines"></button>
+    </div>
+    <button id="setClose" class="btn ghost set-close">Cerrar</button>
+  </div>
+
+  <!-- ======= Crosshair (1a persona) ======= -->
+  <div id="crosshair" class="hidden"></div>
+
+  <!-- ======= Controles tactiles (solo en movil) ======= -->
+  <div id="touchControls" class="hidden">
+    <div id="joystick"><div id="joyKnob"></div></div>
+    <button id="btnInteract" class="touch-btn">E</button>
+    <button id="btnView" class="touch-btn">1a/3a</button>
   </div>
 
   <!-- aviso para capturar raton -->
@@ -108,11 +146,12 @@
     </div>
   </div>
 
-  <!-- ======= Loader ======= -->
+  <!-- ======= Loader (progreso real por pasos) ======= -->
   <div id="loader" class="hidden">
     <div class="loader-box">
       <div class="loader-bar"><div class="loader-fill"></div></div>
-      <div class="loader-txt">entrando al cuarto...</div>
+      <div class="loader-txt" id="loaderTxt">construyendo el cuarto...</div>
+      <div class="loader-pct" id="loaderPct">0%</div>
     </div>
   </div>
 
